@@ -1,9 +1,15 @@
-import {NextUIProvider} from '@nextui-org/react'
+"use client";
 
-export function Providers({children}: { children: React.ReactNode }) {
+import { GeoDataProvider } from "@/context/GeoDataContext";
+import { NextUIProvider } from "@nextui-org/react";
+import { SessionProvider } from "next-auth/react";
+
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <NextUIProvider>
-      {children}
-    </NextUIProvider>
-  )
+    <SessionProvider>
+      <NextUIProvider>
+        <GeoDataProvider>{children}</GeoDataProvider>
+      </NextUIProvider>
+    </SessionProvider>
+  );
 }
