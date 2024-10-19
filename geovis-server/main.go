@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
+	"github.com/ssenthilnathan3/geovis-server/v2/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -35,6 +37,8 @@ type Claims struct {
 	Email string `json:"email"`
 	jwt.RegisteredClaims
 }
+
+type contextKey string
 
 func main() {
 	err := godotenv.Load()
@@ -64,6 +68,11 @@ func initDB() {
 	if err := db.Ping(); err != nil {
 		log.Fatal("Error pinging database:", err)
 	}
+
+	err = InitUserTable(db)
+	if err != nil {
+		log.Fatal("Error creating user table:", err)
+	}
 }
 
 func setupRoutes(router *mux.Router) {
@@ -71,6 +80,32 @@ func setupRoutes(router *mux.Router) {
 	router.HandleFunc("/login", login).Methods("POST")
 	router.HandleFunc("/protected", protected).Methods("GET")
 	router.HandleFunc("/logout", logout).Methods("POST")
+
+	// Add new routes for file operations
+	router.HandleFunc("/files", AuthMiddleware(utils.GetFilesHandler(db))).Methods("GET")
+	router.HandleFunc("/files", AuthMiddleware(utils.UploadFileHandler(db))).Methods("POST")
+}
+
+func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	const userIDKey contextKey = "userID"
+	return func(w http.ResponseWriter, r *http.Request) {
+		tokenString := extractTokenFromHeader(r)
+		claims, err := validateToken(tokenString)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, "Invalid token")
+			return
+		}
+
+		user, err := getUserByEmail(claims.Email)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, "User not found")
+			return
+		}
+
+		// Set the userID in the context
+		ctx := context.WithValue(r.Context(), userIDKey, user.ID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	}
 }
 
 func setupCORS(router *mux.Router) http.Handler {
@@ -277,4 +312,19 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	w.Write(response)
+}
+
+func InitUserTable(db *sql.DB) error {
+	// Create user table if it doesn't exist
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS user (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			email VARCHAR(200) NOT NULL,
+			password VARCHAR(255) NOT NULL,
+			name VARCHAR(200) NOT NULL,
+			token VARCHAR(1000) NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	return err
 }
