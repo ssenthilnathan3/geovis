@@ -65,9 +65,8 @@ export const authOptions: NextAuthOptions = {
           }
 
           const data = JSON.parse(responseText);
-
-          if (data.user) {
-            return { ...data.user, token: data.token };
+          if (data.user && data.user.token) {
+            return { ...data.user, token: data.user.token };
           } else {
             throw new Error('User data not found in response');
           }
@@ -101,12 +100,15 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/login',
   },
+  session: {
+    strategy: 'jwt', 
+  },
   events: {
     async signOut({ token }) {
       // Implement server-side logout logic here
       // For example, invalidate the token on your backend
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/logout`, {
+        await fetch(`${BACKEND_URL}/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token.accessToken}`,

@@ -8,17 +8,24 @@ import { Button, Input } from "@nextui-org/react";
 import { EyeFilledIcon } from "@/components/EyeFilledIcon";
 import { EyeSlashFilledIcon } from "@/components/EyeSlashFilledIcon";
 import { validateEmail, validatePassword, handleAuthAction } from "@/lib/auth_utils";
+import IndicationModal from "@/components/Modal";
 
 export default function Login() {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [isVisible, setIsVisible] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const router = useRouter();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     setError('');
+  };
+
+  const handleModalAction = () => {
+    setIsModalOpen(false); // Close the modal
+    router.push("/"); // Redirect after the modal action
   };
 
   const toggleVisibility = () => setIsVisible(!isVisible);
@@ -40,7 +47,7 @@ export default function Login() {
       'login',
       formData,
       () => {
-        router.push("/");
+        setIsModalOpen(true);
       },
       setError
     );
@@ -48,8 +55,18 @@ export default function Login() {
 
   return (
     <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-10">
-      <div className="flex flex-col items-center justify-center">
-        <p className="text-4xl text-center justify-self-start mb-10">GeoVis 💛</p>
+      <div className="h-screen lg:h-auto flex flex-col items-center justify-start lg:justify-center">
+      <div className="lg:hidden">
+        <Image
+          src="/assets/street-map.png"
+          alt="Street Map Cover Image"
+          width={0}
+          height={0}
+          sizes="100vw"
+          style={{ width: "auto", height: "400px", objectFit: "cover" }}
+        />
+      </div>
+        <p className="text-4xl text-center justify-self-start mb-10 mt-10">GeoVis 💛</p>
         <p className="text-lg text-center font-bold mb-3">Login</p>
 
         {error && <p className="text-red-500 mb-3">{error}</p>}
@@ -98,7 +115,7 @@ export default function Login() {
           </Link>
         </div>
       </div>
-      <div className="h-screen">
+      <div className="hidden lg:flex h-screen">
         <Image
           src="/assets/street-map.png"
           alt="Street Map Cover Image"
@@ -108,6 +125,14 @@ export default function Login() {
           style={{ width: "100%", height: "100vh", objectFit: "cover" }}
         />
       </div>
+      <IndicationModal
+        isOpen={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        title="Success!"
+        content={["You have successfully logged in."]}
+        primaryActionLabel="Continue"
+        onPrimaryAction={handleModalAction}
+      />
     </div>
   );
 }

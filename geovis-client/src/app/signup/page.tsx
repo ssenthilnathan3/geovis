@@ -49,7 +49,17 @@ export default function Signup() {
 
   return (
     <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-10">
-      <div className="flex flex-col items-center justify-center">
+      <div className="flex flex-col items-center justify-start lg:justify-center">
+      <div className="lg:hidden">
+        <Image
+          src="/assets/street-map.png"
+          alt="Street Map Cover Image"
+          width={0}
+          height={0}
+          sizes="100vw"
+          style={{ width: "auto", height: "400px", objectFit: "cover" }}
+        />
+      </div>
         <p className="text-4xl text-center justify-self-start mb-10">GeoVis 💛</p>
         <p className="text-lg text-center font-bold mb-3">Signup</p>
 

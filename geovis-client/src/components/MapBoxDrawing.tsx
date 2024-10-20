@@ -5,6 +5,10 @@ import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useGeoData } from "@/context/GeoDataContext";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import IndicationModal from "./Modal";
+
+const FILE_UPLOAD = `${process.env.NEXT_PUBLIC_API_ENDPOINT}/files`
 
 interface MapboxDrawingProps {
   geoData: GeoJSON.FeatureCollection;
@@ -17,6 +21,15 @@ const MapboxDrawing: React.FC<MapboxDrawingProps> = ({ geoData }) => {
   const [toggleToolbar, setToggleToolbar] = useState(false);
   const { setGeoData } = useGeoData();
   const router = useRouter();
+  const { data: session} = useSession();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
+
+  const handleModalAction = () => {
+    setIsModalOpen(false); 
+    (modalMessage == "Data saved successfully") ? router.push("/") : router.push("/map"); 
+  };
+
 
   useEffect(() => {
     mapboxgl.accessToken =
@@ -33,10 +46,7 @@ const MapboxDrawing: React.FC<MapboxDrawingProps> = ({ geoData }) => {
       const newDraw = new MapboxDraw({
         displayControlsDefault: false,
         controls: {
-          polygon: true,
           trash: true,
-          line_string: true,
-          point: true,
         },
         defaultMode: "simple_select",
       });
@@ -78,6 +88,9 @@ const MapboxDrawing: React.FC<MapboxDrawingProps> = ({ geoData }) => {
         map.fitBounds(bounds, { padding: 50 });
       }
     } else {
+      setModalMessage("Please upload a valid geojson file")
+      setIsModalOpen(true);
+      
       console.log("No valid geoData to load");
     }
   };
@@ -127,18 +140,40 @@ const MapboxDrawing: React.FC<MapboxDrawingProps> = ({ geoData }) => {
     return validBounds ? bounds : null;
   };
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (draw) {
       const newData = draw.getAll();
-      console.log("Saving data:", newData);
-      const dataStr = JSON.stringify(newData);
-      const dataUri =
-        "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
-      const exportFileDefaultName = "map-data.geojson";
-      const linkElement = document.createElement("a");
-      linkElement.setAttribute("href", dataUri);
-      linkElement.setAttribute("download", exportFileDefaultName);
-      linkElement.click();
+      const geoJsonData = JSON.stringify(newData);
+      const base64GeoJson = btoa(geoJsonData);  // Convert string to base64
+  
+      try {
+        // Make the POST request to save the data in the database
+        const response = await fetch(FILE_UPLOAD, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.accessToken}`
+          },
+          body: JSON.stringify({
+            file_name: "geo_json",
+            file_data: base64GeoJson
+          }),
+        });
+  
+        if (!response.ok) {
+          setModalMessage("Error saving data")
+          setIsModalOpen(true);
+          
+          throw new Error(`Error saving data: ${response.statusText}`);
+        }
+  
+        const result = await response.json();
+        console.log("Data saved successfully:", result);
+        setModalMessage("Data saved successfully")
+        setIsModalOpen(true);
+      } catch (error) {
+        console.error("Failed to save data:", error);
+      }
     }
   }, [draw]);
 
@@ -151,12 +186,16 @@ const MapboxDrawing: React.FC<MapboxDrawingProps> = ({ geoData }) => {
           if (selectedFeatures.length > 0) {
             draw.changeMode(mode, { featureId: selectedFeatures[0] });
           } else {
+            setModalMessage("Please select a feature first")
+            setIsModalOpen(true)
             console.log("Please select a feature first");
           }
         } else {
           draw.changeMode(mode);
         }
       } else {
+        setModalMessage("Draw object is not initialized")
+        setIsModalOpen(true)
         console.log("Draw object is not initialized");
       }
     },
@@ -192,6 +231,9 @@ const MapboxDrawing: React.FC<MapboxDrawingProps> = ({ geoData }) => {
           }
         >
           🛠️
+        </button>
+        <button onClick={handleSave} className="bg-[#86efac] text-yellow-800 font-medium me-2 p-2 h-10 text-xs rounded dark:bg-[#86efac] dark:text-black">
+                Save Changes
         </button>
         <div
           className={`transition-all duration-300 ease-in-out transform ${
@@ -232,13 +274,19 @@ const MapboxDrawing: React.FC<MapboxDrawingProps> = ({ geoData }) => {
               >
                 Edit
               </button>
-              <button onClick={handleSave} className={buttonStyle}>
-                Save Changes
-              </button>
             </div>
           )}
+          
         </div>
       </div>
+      <IndicationModal
+        isOpen={isModalOpen}
+        onOpenChange={setIsModalOpen} 
+        title=""
+        content={[modalMessage]}
+        primaryActionLabel="Continue"
+        onPrimaryAction={handleModalAction}
+      />
     </div>
   );
 };

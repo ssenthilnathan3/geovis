@@ -4,6 +4,7 @@ import MapboxDrawing from '@/components/MapBoxDrawing'
 import React, { useEffect, useState } from 'react'
 import { useGeoData } from '@/context/GeoDataContext';
 import { useRouter } from 'next/navigation';
+import SpinnerComponent from '@/components/SpinnerComponent';
 
 function Map() {
     const { geoData, setGeoData } = useGeoData();
@@ -26,10 +27,6 @@ function Map() {
         return () => clearTimeout(timer);
     }, [geoData, router]);
 
-    if (isLoading) {
-        return <div className="h-screen w-full flex items-center justify-center">Loading...</div>;
-    }
-
     if (!geoData) {
         console.log("geoData is null after loading");
         return null;
@@ -39,7 +36,8 @@ function Map() {
 
     return (
         <div className="h-screen w-full">
-            <MapboxDrawing geoData={geoData} />
+            {isLoading ? <SpinnerComponent/> : <MapboxDrawing geoData={geoData} />}
+            
         </div>
     )
 }

@@ -33,9 +33,12 @@ export default function Dashboard() {
         Welcome to GeoVis <span className="text-[#ECCF2C]">{session?.user?.name}</span> 🎉
       </h1>
       <UploadComponent onUpload={handleUpload} />
+      <button className="absolute top-0 right-20 mt-6 mr-2 bg-red-600 text-white font-semibold py-2 px-4 rounded shadow hover:bg-red-700 transition duration-200" onClick={() => router.push('/logout')}>👋 Logout</button>
       <Link href="/profile" className="absolute top-0 right-10 mt-6 text-blue-500 hover:underline">
         <Avatar name={session?.user?.name} size="md"/>
       </Link>
+      
+
     </div>
   );
 }

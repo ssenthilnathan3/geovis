@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext } from 'react';
+import { useFetchGeoData } from '@/hooks/useFetchGeoData'; // Import the new hook
 
 interface GeoData {
   type: 'FeatureCollection';
@@ -7,27 +8,17 @@ interface GeoData {
 
 interface GeoDataContextType {
   geoData: GeoData | null;
+  geoDataList: GeoData[] | null; // State for the list of geoData from the API
   setGeoData: (data: GeoData | null) => void;
+  loading: boolean; // New loading state
+  error: string | null; // Error state
 }
 
 const GeoDataContext = createContext<GeoDataContextType | undefined>(undefined);
 
 export const GeoDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [geoData, setGeoDataState] = useState<GeoData | null>(null);
-
-  useEffect(() => {
-    const storedData = localStorage.getItem('geoData');
-    if (storedData) {
-      try {
-        const parsedData = JSON.parse(storedData);
-        setGeoDataState(parsedData);
-      } catch (error) {
-        console.error("Error parsing stored geoData:", error);
-      }
-    } else {
-      console.log("No geoData found in localStorage");
-    }
-  }, []);
+  const { geoDataList, loading, error } = useFetchGeoData(); // Use the new hook for fetching
 
   const setGeoData = (data: GeoData | null) => {
     setGeoDataState(data);
@@ -39,7 +30,7 @@ export const GeoDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   return (
-    <GeoDataContext.Provider value={{ geoData, setGeoData }}>
+    <GeoDataContext.Provider value={{ geoData, geoDataList, setGeoData, loading, error }}>
       {children}
     </GeoDataContext.Provider>
   );

@@ -16,7 +16,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
+	"github.com/ssenthilnathan3/geovis-server/v2/types"
 	"github.com/ssenthilnathan3/geovis-server/v2/utils"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -37,8 +39,6 @@ type Claims struct {
 	Email string `json:"email"`
 	jwt.RegisteredClaims
 }
-
-type contextKey string
 
 func main() {
 	err := godotenv.Load()
@@ -75,21 +75,15 @@ func initDB() {
 	}
 }
 
-func setupRoutes(router *mux.Router) {
-	router.HandleFunc("/register", register).Methods("POST")
-	router.HandleFunc("/login", login).Methods("POST")
-	router.HandleFunc("/protected", protected).Methods("GET")
-	router.HandleFunc("/logout", logout).Methods("POST")
-
-	// Add new routes for file operations
-	router.HandleFunc("/files", AuthMiddleware(utils.GetFilesHandler(db))).Methods("GET")
-	router.HandleFunc("/files", AuthMiddleware(utils.UploadFileHandler(db))).Methods("POST")
-}
-
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	const userIDKey contextKey = "userID"
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		tokenString := extractTokenFromHeader(r)
+		tokenString, err := extractTokenFromHeader(r)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, err.Error())
+			return
+		}
+
 		claims, err := validateToken(tokenString)
 		if err != nil {
 			respondWithError(w, http.StatusUnauthorized, "Invalid token")
@@ -102,10 +96,21 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// Set the userID in the context
-		ctx := context.WithValue(r.Context(), userIDKey, user.ID)
+		ctx := context.WithValue(r.Context(), types.UserIDKey, user.ID)
+		log.Printf("User ID set in context: %s %d", types.UserIDKey, user.ID) // Log the ID being set
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
+}
+
+func setupRoutes(router *mux.Router) {
+	router.HandleFunc("/register", register).Methods("POST")
+	router.HandleFunc("/login", login).Methods("POST")
+	router.HandleFunc("/protected", protected).Methods("GET")
+	router.HandleFunc("/logout", logout).Methods("POST")
+
+	// Add new routes for file operations
+	router.HandleFunc("/files", AuthMiddleware(utils.GetFilesHandler(db))).Methods("GET")
+	router.HandleFunc("/files", AuthMiddleware(utils.UploadFileHandler(db))).Methods("POST")
 }
 
 func setupCORS(router *mux.Router) http.Handler {
@@ -288,9 +293,19 @@ func validateToken(tokenString string) (*Claims, error) {
 	return claims, nil
 }
 
-func extractTokenFromHeader(r *http.Request) string {
-	bearerToken := r.Header.Get("Authorization")
-	return bearerToken[len("Bearer "):]
+func extractTokenFromHeader(r *http.Request) (string, error) {
+	authHeader := r.Header.Get("Authorization")
+
+	if authHeader == "" {
+		return "", fmt.Errorf("Authorization header missing")
+	}
+
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return "", fmt.Errorf("Invalid Authorization header format")
+	}
+
+	return parts[1], nil
 }
 
 func hashPassword(password string) (string, error) {
